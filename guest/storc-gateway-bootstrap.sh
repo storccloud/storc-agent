@@ -1,5 +1,7 @@
 #!/bin/sh
 # zone9-gateway-bootstrap — the network gateway appliance ("Ağ Geçidi").
+# (guest/storc-gateway-bootstrap.sh in this repository; installed in the appliance as
+# /usr/local/sbin/zone9-gateway-bootstrap.)
 #
 # One gateway VM per customer, attached to the subnets it serves, carrying one of
 # the customer's public IPs. It does two things and nothing else:

@@ -1,5 +1,7 @@
 #!/bin/sh
 # zone9-lb-bootstrap — the load balancer appliance ("Yük dengeleyici").
+# (guest/storc-lb-bootstrap.sh in this repository; installed in the appliance as
+# /usr/local/sbin/zone9-lb-bootstrap.)
 #
 # One VM per load balancer, carrying one of the customer's public IPs, with a leg
 # in the customer's private network. It runs haproxy; the configuration is NOT

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  zone9-windows-prep — turns a freshly installed Windows Server into a zone9 template.
+  storc-windows-prep — turns a freshly installed Windows Server into a zone9 template.
 
 .DESCRIPTION
   Runs INSIDE the guest, once, right before sysprep. It exists because the alternative
@@ -18,7 +18,7 @@
   Run it from the Proxmox node, so nothing has to be typed inside the VM:
 
     qm guest exec <vmid> --timeout 900 -- powershell -NoProfile -ExecutionPolicy Bypass \
-      -Command "irm https://raw.githubusercontent.com/storccloud/storc-agent/main/guest/zone9-windows-prep.ps1 | iex"
+      -Command "irm https://raw.githubusercontent.com/storccloud/storc-agent/main/guest/storc-windows-prep.ps1 | iex"
 
   Prerequisite: virtio guest tools must already be installed (they bring the network
   driver and the guest agent). That one step is done in the console — it is a double
@@ -131,7 +131,7 @@ Step 'cloudbase-init yapılandırıldı'
 # Linux'taki zone9-guest-net'in karşılığı: VPC bloğunu anycast'e yönlendirir ve RDP'yi
 # yalnız özel ağlara açar. Her açılışta koşar (cloudbase-init LocalScripts).
 $netPs1 = "$cbDir\LocalScripts\zone9-guest-net.ps1"
-Invoke-WebRequest 'https://raw.githubusercontent.com/storccloud/storc-agent/main/guest/zone9-guest-net.ps1' -OutFile $netPs1
+Invoke-WebRequest 'https://raw.githubusercontent.com/storccloud/storc-agent/main/guest/storc-guest-net.ps1' -OutFile $netPs1
 if ((Get-Item $netPs1).Length -lt 500) { Fail 'zone9-guest-net.ps1 eksik indi' }
 Step "ağ politikası betiği: $([math]::Round((Get-Item $netPs1).Length/1KB,1)) KB"
 

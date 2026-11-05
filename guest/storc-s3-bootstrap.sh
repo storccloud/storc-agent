@@ -1,5 +1,7 @@
 #!/bin/sh
 # zone9-s3-bootstrap — the object storage appliance ("Nesne Depolama" node, ADR-040).
+# (guest/storc-s3-bootstrap.sh in this repository; installed in the appliance as
+# /usr/local/sbin/zone9-s3-bootstrap.)
 #
 # One VM per store node, with a leg in the customer's private network and NO public
 # address: traffic reaches it through the customer's load balancer. It runs Garage;

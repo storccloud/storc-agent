@@ -1,9 +1,11 @@
 <#
 .SYNOPSIS
   zone9-guest-net — boot-time network policy for Windows guests.
+  (guest/storc-guest-net.ps1 in the storc-agent repository; in the guest it keeps the
+  name zone9-guest-net.ps1.)
 
 .DESCRIPTION
-  The Windows counterpart of zone9-guest-net.sh. Proxmox cloud-init can express
+  The Windows counterpart of storc-guest-net.sh. Proxmox cloud-init can express
   "address + gateway" per interface and nothing else — it cannot write static
   routes. Two consequences, both of which this script fixes at every boot:
 

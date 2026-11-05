@@ -39,6 +39,11 @@ below.
 
 ## Guest image templates — `guest/`
 
+The scripts here are named `storc-*`. Inside images and VMs they keep their `zone9-*` names
+(`/usr/local/sbin/zone9-guest-net`, `/usr/local/sbin/zone9-lb-bootstrap`, `/etc/zone9/`),
+because existing VMs cannot be renamed in place. `guest/zone9-ztn-gateway-bootstrap.sh`
+keeps its old name: it exists only for old references to that name.
+
 `guest/build-template.sh` builds a cloud image into a Proxmox template. It writes into
 the image **without ever booting it**, which is what makes it reliable: the two failure
 modes we hit building templates by hand — a systemd unit that was enabled and never
@@ -82,7 +87,8 @@ interface. Two `default` lines mean the template is incomplete — see below.
 
 `./build-template.sh build lb` (or `gateway`, `s3`) builds a locked zone9 appliance: no
 sshd, no login, no users. It enrols itself with the panel at first boot through
-`guest/zone9-<kind>-bootstrap.sh`, which runs on every boot.
+`guest/storc-<kind>-bootstrap.sh`, installed as `/usr/local/sbin/zone9-<kind>-bootstrap`,
+which runs on every boot.
 
 On the load balancer and object storage appliances the bootstrap also refreshes
 `storc-agent-update` from the latest release (checked against `SHA256SUMS`) on every boot.
@@ -94,9 +100,11 @@ so a changed bootstrap reaches only VMs created after the template is rebuilt. A
 created earlier keep refreshing `zone9-agent-update` from the old repository address at
 every boot, which is why releases keep shipping it.
 
-### `guest/zone9-guest-net.sh`
+### `guest/storc-guest-net.sh`
 
-The routing policy that `build-template.sh` bakes into every image. Proxmox cloud-init
+The routing policy that `build-template.sh` bakes into every image, as
+`/usr/local/sbin/zone9-guest-net`. `guest/storc-guest-net.ps1` is the Windows counterpart,
+put into Windows templates by `guest/storc-windows-prep.ps1`. Proxmox cloud-init
 can only express "address + gateway" per interface, never a static route, so a VM with
 both a public and a private interface receives **two default routes**. Traffic arrives on
 the public interface but replies leave by whichever default the kernel picks; when that is

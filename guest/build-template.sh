@@ -82,7 +82,7 @@ environment:
   ZONE9_TEMPLATE_WORKDIR   working directory      (default: /var/tmp/zone9-templates)
   ZONE9_TEMPLATE_STORAGE   Proxmox storage        (default: Ceph-SSD)
   ZONE9_TEMPLATE_BRIDGE    bridge for the template (default: vmbr0)
-  ZONE9_GUEST_NET          path to zone9-guest-net.sh; downloaded if unset
+  ZONE9_GUEST_NET          path to storc-guest-net.sh; downloaded if unset
   ZONE9_API_URL            panel API the appliance calls (default: https://zone9.cloud/api/v1)
   ZONE9_APPLIANCE_DISK_GB  appliance disk size    (default: 12)
 EOF
@@ -140,6 +140,9 @@ ensure_workdir() {
 
 # Locate a guest script. When build-template.sh is downloaded on its own, its
 # dependencies will not be sitting next to it — fetch them rather than failing.
+# The repository names them storc-*; inside the image they keep their zone9-* names
+# (/usr/local/sbin/zone9-guest-net, /usr/local/sbin/zone9-<kind>-bootstrap), the
+# names existing VMs and the core's docs use.
 resolve_guest_file() {
   local name="$1"
   local here; here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -158,7 +161,7 @@ resolve_hook() {
     [ -f "$ZONE9_GUEST_NET" ] || { echo "ZONE9_GUEST_NET not found: $ZONE9_GUEST_NET" >&2; exit 1; }
     printf '%s' "$ZONE9_GUEST_NET"; return
   fi
-  resolve_guest_file zone9-guest-net.sh
+  resolve_guest_file storc-guest-net.sh
 }
 
 
@@ -239,7 +242,7 @@ appliance_gate_args() {
 
 gateway_args() {
   local hook="$1"
-  local bootstrap; bootstrap="$(resolve_guest_file zone9-gateway-bootstrap.sh)"
+  local bootstrap; bootstrap="$(resolve_guest_file storc-gateway-bootstrap.sh)"
   ARGS+=(
     # iptables: the egress NAT the gateway writes on every boot. tailscale: the
     # Zero Trust capability, installed but DISABLED — the panel turns it on with a
@@ -263,7 +266,7 @@ gateway_args() {
 
 lb_args() {
   local hook="$1"
-  local bootstrap; bootstrap="$(resolve_guest_file zone9-lb-bootstrap.sh)"
+  local bootstrap; bootstrap="$(resolve_guest_file storc-lb-bootstrap.sh)"
 
   # zone9-lb ships DISABLED: its EnvironmentFile carries the VM identity, which only
   # exists after the bootstrap token has been exchanged. Starting it earlier would
@@ -352,7 +355,7 @@ CFG
 
 s3_args() {
   local hook="$1"
-  local bootstrap; bootstrap="$(resolve_guest_file zone9-s3-bootstrap.sh)"
+  local bootstrap; bootstrap="$(resolve_guest_file storc-s3-bootstrap.sh)"
 
   # Garage is pinned by version AND by checksum. There is no upstream checksum file
   # to fetch (verified: 404), so the hash is recorded here; a changed binary fails
