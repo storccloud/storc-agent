@@ -1,7 +1,8 @@
-# zone9-agent
+# storc-agent
 
-The zone9 executor that runs inside your Proxmox cluster, plus the operator scripts
-that go with it.
+The zone9 executor (`zone9-agent`) that runs inside your Proxmox cluster, plus the
+operator scripts that go with it. This repository was `z9cloud/zone9-agent`; GitHub
+redirects the old address.
 
 The agent connects **outbound only** (panel API, 443): no inbound port is opened, and
 your Proxmox token stays on that machine — the panel never sees it.
@@ -23,8 +24,18 @@ zone9-agent register --token z9r_...
 systemctl enable --now zone9-agent
 ```
 
-Latest binaries: [releases/latest](https://github.com/z9cloud/zone9-agent/releases/latest)
+Latest binaries: [releases/latest](https://github.com/storccloud/storc-agent/releases/latest)
 (`zone9-agent-linux-amd64`, `zone9-agent-linux-arm64`).
+
+### Updater
+
+`storc-agent-update` keeps an agent (or an appliance daemon) on the latest release: it
+downloads the binary, checks it against `SHA256SUMS` and `--version`, swaps it in and rolls
+back if the service does not come up. Its old name was `zone9-agent-update`. Releases ship
+both while machines with the old name exist; `storc-agent-update --migrate` moves one over
+(old timer off, `/etc/default/zone9-agent-update` → `/etc/default/storc-agent-update`, new
+timer on). The load balancer and object storage appliances do this themselves at boot, see
+below.
 
 ## Guest image templates — `guest/`
 
@@ -45,7 +56,7 @@ The split exists so that libguestfs — which pulls in ghostscript, x11-common, 
 and fonts — never has to be installed on a hypervisor.
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/z9cloud/zone9-agent/main/guest/build-template.sh
+curl -fsSLO https://raw.githubusercontent.com/storccloud/storc-agent/main/guest/build-template.sh
 chmod +x build-template.sh
 
 # on the build host (once: apt install libguestfs-tools)
@@ -66,6 +77,22 @@ and can be cloned from every node in the cluster.
 **Verify every new template.** Create a server from it, attach a public IP, and inside
 the guest run `ip -4 route`. There must be exactly one `default` line, on the public
 interface. Two `default` lines mean the template is incomplete — see below.
+
+### Appliances: `gateway`, `lb`, `s3`
+
+`./build-template.sh build lb` (or `gateway`, `s3`) builds a locked zone9 appliance: no
+sshd, no login, no users. It enrols itself with the panel at first boot through
+`guest/zone9-<kind>-bootstrap.sh`, which runs on every boot.
+
+On the load balancer and object storage appliances the bootstrap also refreshes
+`storc-agent-update` from the latest release (checked against `SHA256SUMS`) on every boot.
+If the VM still has `zone9-agent-update` (or the new timer is not enabled), it then runs
+`storc-agent-update --migrate`, so the VM moves itself over and nobody has to log in.
+
+The bootstrap is baked into the template and every VM keeps the copy it was cloned with,
+so a changed bootstrap reaches only VMs created after the template is rebuilt. Appliances
+created earlier keep refreshing `zone9-agent-update` from the old repository address at
+every boot, which is why releases keep shipping it.
 
 ### `guest/zone9-guest-net.sh`
 

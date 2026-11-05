@@ -32,7 +32,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # The binary comes from the public repository; the panel's source stays private.
-REL="${ZONE9_AGENT_RELEASE:-https://github.com/z9cloud/zone9-agent/releases/latest/download}"
+REL="${ZONE9_AGENT_RELEASE:-https://github.com/storccloud/storc-agent/releases/latest/download}"
 say "downloading binary…"
 curl -fsSL "$REL/zone9-agent-linux-$ARCH" -o "$TMP/zone9-agent" \
   || die "download failed: $REL/zone9-agent-linux-$ARCH"

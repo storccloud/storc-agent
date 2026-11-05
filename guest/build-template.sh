@@ -63,9 +63,9 @@ ARGS=()
 PARTIAL=""
 trap 'rm -f "${HOOK_TMP:-}" "${PARTIAL:-}"; [ -n "${APP_TMPDIR:-}" ] && rm -rf "$APP_TMPDIR"' EXIT
 
-GUEST_BASE_URL="${ZONE9_GUEST_BASE_URL:-https://raw.githubusercontent.com/z9cloud/zone9-agent/main/guest}"
+GUEST_BASE_URL="${ZONE9_GUEST_BASE_URL:-https://raw.githubusercontent.com/storccloud/storc-agent/main/guest}"
 # The appliance daemons and the updater ship as release assets of the same repo.
-RELEASE_BASE_URL="${ZONE9_RELEASE_BASE_URL:-https://github.com/z9cloud/zone9-agent/releases/latest/download}"
+RELEASE_BASE_URL="${ZONE9_RELEASE_BASE_URL:-https://github.com/storccloud/storc-agent/releases/latest/download}"
 API_URL="${ZONE9_API_URL:-https://zone9.cloud/api/v1}"
 APPLIANCE_DISK_GB="${ZONE9_APPLIANCE_DISK_GB:-12}"
 # Temp files for the appliance branch; removed by the EXIT trap.
@@ -271,7 +271,7 @@ lb_args() {
   cat > "$APP_TMPDIR/zone9-lb.service" <<'UNIT'
 [Unit]
 Description=zone9 load balancer daemon (pulls panel config into haproxy)
-Documentation=https://github.com/z9cloud/zone9-agent
+Documentation=https://github.com/storccloud/storc-agent
 After=network-online.target haproxy.service
 Wants=network-online.target
 
@@ -287,7 +287,7 @@ UNIT
 
   # The updater is the agent's, pointed at a different asset: one update mechanism
   # for every zone9 binary, one place where the rollback rules live.
-  cat > "$APP_TMPDIR/zone9-agent-update.default" <<'DEF'
+  cat > "$APP_TMPDIR/storc-agent-update.default" <<'DEF'
 ZONE9_AGENT_ASSET=zone9-lb
 ZONE9_AGENT_BIN=/usr/local/bin/zone9-lb
 ZONE9_AGENT_UNIT=zone9-lb
@@ -322,15 +322,15 @@ CFG
     --upload "$APP_TMPDIR/haproxy.cfg:/etc/haproxy/haproxy.cfg"
     --run-command 'haproxy -c -q -f /etc/haproxy/haproxy.cfg'
     --run-command "curl -fsSL --retry 3 -o /usr/local/bin/zone9-lb $RELEASE_BASE_URL/zone9-lb-linux-amd64"
-    --run-command "curl -fsSL --retry 3 -o /usr/local/sbin/zone9-agent-update $RELEASE_BASE_URL/zone9-agent-update"
+    --run-command "curl -fsSL --retry 3 -o /usr/local/sbin/storc-agent-update $RELEASE_BASE_URL/storc-agent-update"
     --chmod '0755:/usr/local/bin/zone9-lb'
-    --chmod '0755:/usr/local/sbin/zone9-agent-update'
-    --upload "$APP_TMPDIR/zone9-agent-update.default:/etc/default/zone9-agent-update"
+    --chmod '0755:/usr/local/sbin/storc-agent-update'
+    --upload "$APP_TMPDIR/storc-agent-update.default:/etc/default/storc-agent-update"
     --upload "$APP_TMPDIR/zone9-lb.service:/etc/systemd/system/zone9-lb.service"
     # --install writes the units and tries to start the timer; the start half cannot
     # work in a chroot, so the enable is done explicitly afterwards.
-    --run-command 'zone9-agent-update --install || true'
-    --run-command 'systemctl enable zone9-agent-update.timer || true'
+    --run-command 'storc-agent-update --install || true'
+    --run-command 'systemctl enable storc-agent-update.timer || true'
     --run-command 'systemctl disable zone9-lb 2>/dev/null || true'
   )
   appliance_common_args "$hook" "$bootstrap" zone9-lb-bootstrap zone9-zz-lb-bootstrap
@@ -343,7 +343,9 @@ CFG
     [ -x /usr/local/sbin/zone9-lb-bootstrap ] || fail "lb bootstrap missing"
     [ -x /var/lib/cloud/scripts/per-boot/zone9-zz-lb-bootstrap ] || fail "lb hook missing"
     [ -f /etc/systemd/system/zone9-lb.service ] || fail "zone9-lb unit missing"
-    grep -q "^ZONE9_AGENT_ASSET=zone9-lb$" /etc/default/zone9-agent-update || fail "updater not pointed at zone9-lb"
+    grep -q "^ZONE9_AGENT_ASSET=zone9-lb$" /etc/default/storc-agent-update || fail "updater not pointed at zone9-lb"
+    [ -x /usr/local/sbin/storc-agent-update ] || fail "updater (storc-agent-update) missing"
+    [ -L /etc/systemd/system/timers.target.wants/storc-agent-update.timer ] || fail "updater timer not enabled"
     systemctl is-enabled zone9-lb 2>/dev/null | grep -q "^enabled$" && fail "zone9-lb must ship disabled (identity comes at bootstrap)"
     echo "zone9: lb gates passed, zone9-lb $(/usr/local/bin/zone9-lb --version)"' )
 }
@@ -365,7 +367,7 @@ s3_args() {
   cat > "$APP_TMPDIR/zone9-s3.service" <<'UNIT'
 [Unit]
 Description=zone9 object storage daemon (pulls panel config into Garage)
-Documentation=https://github.com/z9cloud/zone9-agent
+Documentation=https://github.com/storccloud/storc-agent
 After=network-online.target
 Wants=network-online.target
 
@@ -402,7 +404,7 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 UNIT
 
-  cat > "$APP_TMPDIR/zone9-agent-update.default" <<'DEF'
+  cat > "$APP_TMPDIR/storc-agent-update.default" <<'DEF'
 ZONE9_AGENT_ASSET=zone9-s3
 ZONE9_AGENT_BIN=/usr/local/bin/zone9-s3
 ZONE9_AGENT_UNIT=zone9-s3
@@ -416,15 +418,15 @@ DEF
     --run-command "echo '$garage_sha  /usr/local/bin/garage' | sha256sum -c -"
     --chmod '0755:/usr/local/bin/garage'
     --run-command "curl -fsSL --retry 3 -o /usr/local/bin/zone9-s3 $RELEASE_BASE_URL/zone9-s3-linux-amd64"
-    --run-command "curl -fsSL --retry 3 -o /usr/local/sbin/zone9-agent-update $RELEASE_BASE_URL/zone9-agent-update"
+    --run-command "curl -fsSL --retry 3 -o /usr/local/sbin/storc-agent-update $RELEASE_BASE_URL/storc-agent-update"
     --chmod '0755:/usr/local/bin/zone9-s3'
-    --chmod '0755:/usr/local/sbin/zone9-agent-update'
-    --upload "$APP_TMPDIR/zone9-agent-update.default:/etc/default/zone9-agent-update"
+    --chmod '0755:/usr/local/sbin/storc-agent-update'
+    --upload "$APP_TMPDIR/storc-agent-update.default:/etc/default/storc-agent-update"
     --upload "$APP_TMPDIR/zone9-s3.service:/etc/systemd/system/zone9-s3.service"
     --upload "$APP_TMPDIR/garage.service:/etc/systemd/system/garage.service"
     --mkdir '/var/lib/garage'
-    --run-command 'zone9-agent-update --install || true'
-    --run-command 'systemctl enable zone9-agent-update.timer || true'
+    --run-command 'storc-agent-update --install || true'
+    --run-command 'systemctl enable storc-agent-update.timer || true'
     --run-command 'systemctl disable zone9-s3 2>/dev/null || true'
     --run-command 'systemctl disable garage 2>/dev/null || true'
   )
@@ -441,7 +443,9 @@ DEF
     [ -f /etc/systemd/system/zone9-s3.service ] || fail "zone9-s3 unit missing"
     [ -f /etc/systemd/system/garage.service ] || fail "garage unit missing"
     [ -e /etc/garage.toml ] && fail "garage.toml must NOT ship in the image (it carries the cluster secrets)"
-    grep -q "^ZONE9_AGENT_ASSET=zone9-s3$" /etc/default/zone9-agent-update || fail "updater not pointed at zone9-s3"
+    grep -q "^ZONE9_AGENT_ASSET=zone9-s3$" /etc/default/storc-agent-update || fail "updater not pointed at zone9-s3"
+    [ -x /usr/local/sbin/storc-agent-update ] || fail "updater (storc-agent-update) missing"
+    [ -L /etc/systemd/system/timers.target.wants/storc-agent-update.timer ] || fail "updater timer not enabled"
     systemctl is-enabled zone9-s3 2>/dev/null | grep -q "^enabled$" && fail "zone9-s3 must ship disabled (identity comes at bootstrap)"
     systemctl is-enabled garage 2>/dev/null | grep -q "^enabled$" && fail "garage must ship disabled (it has no config until the daemon writes one)"
     echo "zone9: s3 gates passed, garage $(/usr/local/bin/garage --version | head -1), zone9-s3 $(/usr/local/bin/zone9-s3 --version)"' )
