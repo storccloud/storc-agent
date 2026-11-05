@@ -1,5 +1,7 @@
 #!/bin/sh
 # zone9-s3-bootstrap — the object storage appliance ("Nesne Depolama" node, ADR-040).
+# (guest/storc-s3-bootstrap.sh in this repository; installed in the appliance as
+# /usr/local/sbin/zone9-s3-bootstrap.)
 #
 # One VM per store node, with a leg in the customer's private network and NO public
 # address: traffic reaches it through the customer's load balancer. It runs Garage;
@@ -50,24 +52,50 @@ free_mb="$(df -Pm "$GARAGE_DIR" | awk 'NR==2 {print $4}')"
 log "storage: ${free_mb:-?} MB free under $GARAGE_DIR"
 
 # ---------------------------------------------------------------------------
-# 2. Updater refresh — best effort, every boot
+# 2. Updater refresh (and migration) — best effort, every boot
 # ---------------------------------------------------------------------------
-# The updater updates the daemon but not itself, so a bug in the updater would
-# otherwise be permanent on a locked VM. Verified against the release's SHA256SUMS;
-# on any failure the current copy stays.
+# The updater is storc-agent-update (formerly zone9-agent-update). It updates the
+# daemon but not itself, so a bug in the updater would otherwise be permanent on a
+# locked VM. Verified against the release's SHA256SUMS; on any failure the current
+# copy stays.
+UPDATER=/usr/local/sbin/storc-agent-update
 refresh_updater() {
-  base="https://github.com/${ZONE9_AGENT_REPO:-z9cloud/zone9-agent}/releases/latest/download"
+  base="https://github.com/${ZONE9_AGENT_REPO:-storccloud/storc-agent}/releases/latest/download"
   d="$(mktemp -d)"
-  if curl -fsSL --max-time 20 -o "$d/u" "$base/zone9-agent-update" \
+  if curl -fsSL --max-time 20 -o "$d/u" "$base/storc-agent-update" \
      && curl -fsSL --max-time 20 -o "$d/sums" "$base/SHA256SUMS" \
-     && grep " zone9-agent-update\$" "$d/sums" | sed 's# zone9-agent-update$# u#' > "$d/want" \
-     && (cd "$d" && sha256sum -c want >/dev/null 2>&1) \
-     && ! cmp -s "$d/u" /usr/local/sbin/zone9-agent-update; then
-    install -m 0755 "$d/u" /usr/local/sbin/zone9-agent-update && log "updater refreshed from latest release"
+     && grep " storc-agent-update\$" "$d/sums" | sed 's# storc-agent-update$# u#' > "$d/want" \
+     && (cd "$d" && sha256sum -c want >/dev/null 2>&1); then
+    if ! cmp -s "$d/u" "$UPDATER"; then
+      install -m 0755 "$d/u" "$UPDATER" && log "updater refreshed from latest release"
+    fi
+  else
+    log "updater not refreshed (download or checksum failed); the current copy stays"
   fi
   rm -rf "$d"
 }
+
+# A VM that still has zone9-agent-update (a template made before the rename that was
+# given this bootstrap) moves itself over. --migrate waits for a running
+# zone9-agent-update to finish, disables its timer, removes its units and script,
+# moves /etc/default/zone9-agent-update to /etc/default/storc-agent-update and
+# installs the storc-agent-update timer. It is safe to repeat. It runs only while
+# something of the old updater is left or the new timer is not enabled, so a failed
+# or half-done migration is retried at the next boot and a migrated VM skips it.
+migrate_updater() {
+  [ -x "$UPDATER" ] || return 0
+  if [ -e /etc/default/zone9-agent-update ] || [ -e /usr/local/sbin/zone9-agent-update ] \
+     || [ -e /etc/systemd/system/zone9-agent-update.timer ] \
+     || ! systemctl is-enabled --quiet storc-agent-update.timer 2>/dev/null; then
+    if out="$("$UPDATER" --migrate 2>&1)"; then
+      log "updater migrated: zone9-agent-update -> storc-agent-update"
+    else
+      log "updater migration failed, retried at next boot: $(printf '%s\n' "$out" | tail -n 1)"
+    fi
+  fi
+}
 refresh_updater || true
+migrate_updater || true
 
 # ---------------------------------------------------------------------------
 # 3. Enrollment — once per token

@@ -1,5 +1,7 @@
 #!/bin/sh
 # zone9-guest-net — routing policy for dual-homed guests.
+# (guest/storc-guest-net.sh in this repository; installed in every image as
+# /usr/local/sbin/zone9-guest-net.)
 #
 # The problem it solves: Proxmox cloud-init can only express "address + gateway"
 # per interface — it cannot write static routes. A VM with both a public interface
